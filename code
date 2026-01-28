@@ -1,0 +1,149 @@
+# =============================================================================
+# SPGI TTM Cash Flow Waterfall Chart – Polished, Error-Free
+# =============================================================================
+# Changes: Removed invalid 'marker' property; rely on native increasing/decreasing/totals colors
+# FX kept visible but labeled "immaterial" – it will use increasing color (green)
+# =============================================================================
+
+import plotly.graph_objects as go
+
+# ── Metadata ─────────────────────────────────────────────────────────────────
+company     = "S&P Global (SPGI)"
+period_end  = "September 30, 2025"
+as_of_note  = "Data as of late January 2026"
+source_note = "StockAnalysis.com (S&P Global Market Intelligence)"
+
+# ── Data (billions USD) ──────────────────────────────────────────────────────
+OCF               = 5.643
+capex             = -0.182
+cash_acq          = -0.091
+divestitures      = 0.093
+inv_securities    = -0.045
+net_investing     = -0.225
+
+net_debt_issued   = -0.004
+repurchase        = -3.966
+dividends         = -1.160
+other_fin         = -0.316
+net_financing     = -5.446
+
+fx                = 0.003    # small positive → will be green (increasing)
+net_cash_flow     = -0.025
+
+# Derived
+fcf               = OCF + capex
+fcf_conversion    = fcf / OCF
+capex_intensity   = abs(capex) / OCF
+
+# ── Labels & values (no zero bar; FX kept but labeled) ───────────────────────
+labels = [
+    "Operating Cash Flow",
+    "CapEx",
+    "Cash Acquisitions",
+    "Divestitures",
+    "Investment in Securities",
+    "Net Debt Issued/(Repaid)",
+    "Share Repurchases",
+    "Dividends Paid",
+    "Other Financing Activities",
+    "FX Adjustments (immaterial)",
+    "Net Change in Cash"
+]
+
+values = [
+    OCF,
+    capex,
+    cash_acq,
+    divestitures,
+    inv_securities,
+    net_debt_issued,
+    repurchase,
+    dividends,
+    other_fin,
+    fx,
+    net_cash_flow
+]
+
+measures = ["absolute"] + ["relative"] * (len(values) - 1)
+
+text = [f"{v:+.2f}B" for v in values]
+text[0]  = f"{values[0]:.2f}B"
+text[-1] = f"{values[-1]:+.2f}B"
+text[-2] = "immaterial"   # override for clarity
+
+# ── Waterfall trace (native coloring only) ───────────────────────────────────
+fig = go.Figure(go.Waterfall(
+    name          = "Cash Flows",
+    orientation   = "v",
+    measure       = measures,
+    x             = labels,
+    y             = values,
+    text          = text,
+    textposition  = "outside",
+    textfont      = dict(size=11),
+    connector     = {"line": {"color": "rgb(80,80,80)", "width": 1.4, "dash": "dot"}},
+    increasing    = {"marker": {"color": "#1f9855"}},    # green for positives
+    decreasing    = {"marker": {"color": "#c62828"}},    # red for negatives
+    totals        = {"marker": {"color": "#1565c0"}},     # blue for final total
+))
+
+# Optional: Grey overlay for immaterial FX bar (if you want it visually muted)
+# Add this after the trace if needed – it's a semi-transparent rectangle
+fig.add_shape(
+    type="rect",
+    x0=9.4, x1=10.6,          # roughly covers the FX bar index 9
+    y0=OCF + net_investing + net_financing + 0,   # bottom of FX bar
+    y1=OCF + net_investing + net_financing + fx + 0.05,  # top + padding
+    fillcolor="rgba(170,170,170,0.4)",
+    line={"width": 0},
+    layer="above"
+)
+
+# ── Layout (unchanged) ───────────────────────────────────────────────────────
+fig.update_layout(
+    title = dict(
+        text = (
+            f"{company} — Cash Flow Waterfall (TTM)<br>"
+            f"<sup>Period ending {period_end}  •  "
+            f"FCF ≈ {fcf:.2f}B  •  Conversion {fcf_conversion:.0%}  •  "
+            f"CapEx {capex_intensity:.1%} of OCF</sup>"
+        ),
+        font = dict(size=22),
+        x = 0.5,
+        xanchor = "center",
+        y = 0.98
+    ),
+    yaxis_title       = "USD Billions",
+    template          = "plotly_white",
+    showlegend        = False,
+    margin            = dict(l=60, r=40, t=110, b=140),
+    height            = 720,
+    font              = dict(family="Helvetica, Arial", size=12),
+)
+
+# Subtotal annotations (adjusted x for financing start at index 5)
+fig.add_annotation(x=3.0, y=OCF + net_investing + 0.6,
+                   text=f"<b>Investing total</b><br>{net_investing:+.2f}B",
+                   showarrow=False, font=dict(size=12, color="#444"),
+                   align="center", bgcolor="rgba(240,240,240,0.7)",
+                   bordercolor="#aaa", borderwidth=1, borderpad=6)
+
+fig.add_annotation(x=7.5, y=OCF + net_investing + net_financing - 1.0,
+                   text=f"<b>Financing total</b><br>{net_financing:+.2f}B",
+                   showarrow=False, font=dict(size=12, color="#444"),
+                   align="center", bgcolor="rgba(240,240,240,0.7)",
+                   bordercolor="#aaa", borderwidth=1, borderpad=6)
+
+# Footnote
+fig.add_annotation(
+    text=f"Source: {source_note}  |  {as_of_note}  |  Values in USD billions | Stock issuance = $0 (excluded)",
+    xref="paper", yref="paper", x=0.01, y=-0.24,
+    showarrow=False, align="left", font=dict(size=10, color="#555")
+)
+
+fig.update_xaxes(tickangle=-18, tickfont=dict(size=11), automargin=True)
+
+fig.show()
+
+# Export if needed:
+# fig.write_image("SPGI_cash_flow_waterfall_fixed.png", scale=3)
